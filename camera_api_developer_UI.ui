@@ -740,6 +740,12 @@ background-color: red;</string>
                   <property name="mouseTracking">
                    <bool>true</bool>
                   </property>
+                  <property name="verticalScrollBarPolicy">
+                   <enum>Qt::ScrollBarAlwaysOff</enum>
+                  </property>
+                  <property name="horizontalScrollBarPolicy">
+                   <enum>Qt::ScrollBarAlwaysOff</enum>
+                  </property>
                  </widget>
                 </item>
                </layout>
@@ -846,24 +852,7 @@ background-color: red;</string>
   </action>
  </widget>
  <resources/>
- <connections>
-  <connection>
-   <sender>pushButton_Page_1_Connect_to_Camera</sender>
-   <signal>clicked(bool)</signal>
-   <receiver>comboBox_Camera_API_Selection</receiver>
-   <slot>setEnabled(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>702</x>
-     <y>75</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>455</x>
-     <y>75</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
  <designerdata>
   <property name="gridDeltaX">
    <number>10</number>
