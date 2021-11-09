@@ -773,7 +773,7 @@ background-color: red;</string>
                       <item row="0" column="0">
                        <widget class="QSpinBox" name="spinBox_Buffer_Size">
                         <property name="sizePolicy">
-                         <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                           <horstretch>0</horstretch>
                           <verstretch>0</verstretch>
                          </sizepolicy>
@@ -781,7 +781,7 @@ background-color: red;</string>
                         <property name="minimumSize">
                          <size>
                           <width>75</width>
-                          <height>22</height>
+                          <height>0</height>
                          </size>
                         </property>
                         <property name="maximumSize">
