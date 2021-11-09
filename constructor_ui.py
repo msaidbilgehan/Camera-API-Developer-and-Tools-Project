@@ -186,7 +186,6 @@ class Ui_Settings(Structure_UI):
 class Ui_Camera_API_Developer(Structure_UI):
     logger_level = logging.INFO
     __camera_Instance = None
-    __camera_Buffer_Size = 1000
     __exposure_Time = 40000
     #__Threads = dict()
     
@@ -256,6 +255,7 @@ class Ui_Camera_API_Developer(Structure_UI):
                 CAMERA_FLAGS.BASLER if self.comboBox_Camera_API_Selection.currentText() == "Basler" else 
                 CAMERA_FLAGS.BAUMER if self.comboBox_Camera_API_Selection.currentText() == "Baumer" else 
                 CAMERA_FLAGS.CV2,
+                self.spinBox_Buffer_Size.value(),
                 self.__exposure_Time
             )
         )
@@ -269,12 +269,12 @@ class Ui_Camera_API_Developer(Structure_UI):
             lambda: None if self.__camera_Instance is None \
                 else self.__camera_Instance.buffer_Clear()
         )
-        """
         self.pushButton_Set_Exposure.clicked.connect(
-            lambda self.dial_Exposure_Time.value():
-                self.__exposure_Time=self.dial_Exposure_Time.value()
+            lambda: self.set_Camera_Exposure(
+                self.spinBox_Exposure_Time.value() * 10000
+            )
         )
-        """
+        #self.pushButton_Page_1_Video.clicked.connect()
     
     def configure_Other_Settings(self):
         # Event Position Initializes
@@ -306,11 +306,23 @@ class Ui_Camera_API_Developer(Structure_UI):
                 )
              )
         )
-        
+
+        ### ### ## ###
+        ### BUFFER ###
+        ### ### ## ###
         self.horizontalSlider_Page_1_Buffer_Step_Bar.setMinimum(0)
-        self.horizontalSlider_Page_1_Buffer_Step_Bar.setMaximum(
-            self.__camera_Buffer_Size
+        self.spinBox_Buffer_Size.valueChanged.connect(
+            lambda:(
+                self.horizontalSlider_Page_1_Buffer_Step_Bar.setMaximum(
+                    self.spinBox_Buffer_Size.value()
+                ),
+                None if self.__camera_Instance is None \
+                else self.__camera_Instance.set_Buffer_Size(
+                    self.spinBox_Buffer_Size.value()
+                )
+            )
         )
+        
         self.horizontalSlider_Page_1_Buffer_Step_Bar.valueChanged.connect(
             lambda: self.graphicsView_Renderer(
                 self.graphicsView_Page_1_Camera,
@@ -319,7 +331,23 @@ class Ui_Camera_API_Developer(Structure_UI):
                 )
             )
         )
-    
+        
+        self.checkBox_Show_Only_Stream.stateChanged.connect(
+            lambda:
+            self.hide_elements([
+                self.groupBox_Page_1_Camera_General,
+                self.widget_Real_Time_Properties,
+                self.widget_Page_1_Tools
+            ]) \
+                if self.checkBox_Show_Only_Stream.isChecked() else \
+            self.show_elements([
+                self.groupBox_Page_1_Camera_General,
+                self.widget_Real_Time_Properties,
+                self.widget_Page_1_Tools
+            ])
+        )
+        self.hide_elements([self.dial_Exposure_Time])
+
     def closeEvent(self, *args, **kwargs):
         super(Ui_Camera_API_Developer, self).closeEvent(*args, **kwargs)
         
@@ -327,7 +355,7 @@ class Ui_Camera_API_Developer(Structure_UI):
         if self.mdiArea is not None:
             #self.Parent.destroy_Sub_Window_Overwrite(self)
             self.Parent.destroy_Sub_Window(self.mdiArea, self)
-        
+
     ### ### ## ### ###
     ### ### ## ### ###
     ### ### ## ### ###
@@ -373,8 +401,8 @@ class Ui_Camera_API_Developer(Structure_UI):
     ### CAMERA APIs ###
     ### ### ### ### ###
     
-    def connect_to_Camera(self, camera_flag, exposure_time=40000):
-        self.__camera_Instance = self.get_Camera(camera_flag, exposure_time=exposure_time)
+    def connect_to_Camera(self, camera_flag, buffer_size=10, exposure_time=40000):
+        self.__camera_Instance = self.get_Camera(camera_flag, buffer_size=buffer_size, exposure_time=exposure_time)
         
         # TODO: Add Color Changer
         # self.
@@ -390,7 +418,7 @@ class Ui_Camera_API_Developer(Structure_UI):
     def camera_Listener(self):
         pass
         
-    def get_Camera(self, camera_flag=CAMERA_FLAGS.CV2, exposure_time=40000):
+    def get_Camera(self, camera_flag=CAMERA_FLAGS.CV2, buffer_size=10, exposure_time=40000):
         camera = None
         try:
             camera = Camera_Object(
@@ -401,7 +429,7 @@ class Ui_Camera_API_Developer(Structure_UI):
                 lock_until_done=False,
                 acquisition_framerate=15,
                 exposure_time=exposure_time,
-                max_buffer_limit=self.__camera_Buffer_Size,
+                max_buffer_limit=buffer_size,
                 logger_level=self.logger_level
             )
         except:
@@ -416,6 +444,7 @@ class Ui_Camera_API_Developer(Structure_UI):
             self.stream_Switch(False)
             #self.__camera_Instance.camera_Releaser()
             self.__camera_Instance.quit()
+            self.__camera_Instance = None
         #return self.is_Stream_Active()
 
     def is_Stream_Active(self):
@@ -428,6 +457,10 @@ class Ui_Camera_API_Developer(Structure_UI):
         )
         return self.is_Camera_Stream_Active
         
+    def set_Camera_Exposure(self, exposure_time):
+        self.__exposure_Time = exposure_time
+        None if self.__camera_Instance is None else self.__camera_Instance.set_Exposure_Time(self.__exposure_Time)
+
     ### ### ### ### ###
     ### ### ### ### ###
     ### ### ### ### ###
