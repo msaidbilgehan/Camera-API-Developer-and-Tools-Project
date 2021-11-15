@@ -275,6 +275,7 @@ class Ui_Camera_API_Developer(Structure_UI):
             )
         )
         #self.pushButton_Page_1_Video.clicked.connect()
+        #self.pushButton_Page_1_Snapshot.clicked.connect()
     
     def configure_Other_Settings(self):
         # Event Position Initializes
@@ -402,18 +403,28 @@ class Ui_Camera_API_Developer(Structure_UI):
     ### ### ### ### ###
     
     def connect_to_Camera(self, camera_flag, buffer_size=10, exposure_time=40000):
-        self.__camera_Instance = self.get_Camera(camera_flag, buffer_size=buffer_size, exposure_time=exposure_time)
-        
-        # TODO: Add Color Changer
-        # self.
-        
         if self.is_Camera_Instance_Exist():
-            self.__camera_Instance.stream_Start_Thread(
-                trigger_pause=self.is_Stream_Active,
-                trigger_quit=self.is_Quit_App,
-                number_of_snapshot=-1,
-                delay=0.001
+            self.camera_Remove()
+            self.connect_to_Camera(
+                camera_flag,
+                buffer_size,
+                exposure_time
             )
+            
+        else:
+            self.__camera_Instance = self.get_Camera(camera_flag, buffer_size=buffer_size, exposure_time=exposure_time)
+            
+            # TODO: Add Color Changer
+            # self.
+            if self.is_Camera_Instance_Exist():
+                self.__camera_Instance.stream_Start_Thread(
+                    trigger_pause=self.is_Stream_Active,
+                    trigger_quit=self.is_Quit_App,
+                    number_of_snapshot=-1,
+                    delay=0.001
+                )
+            else:
+                self.__camera_Instance = None
             
     def camera_Listener(self):
         pass
@@ -437,7 +448,7 @@ class Ui_Camera_API_Developer(Structure_UI):
         return camera
     
     def is_Camera_Instance_Exist(self):
-        return False if self.__camera_Instance is None else True
+        return False if self.__camera_Instance is None else False if not self.__camera_Instance.is_Object_Initialized() else True
     
     def camera_Remove(self):
         if self.is_Camera_Instance_Exist():
