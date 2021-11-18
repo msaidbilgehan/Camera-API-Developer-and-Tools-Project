@@ -13,6 +13,7 @@ import libs
 from stdo import stdo
 from structure_ui import Structure_UI, init_and_run_UI, init_UI
 from structure_camera import Camera_Object, CAMERA_FLAGS
+from structure_ui_camera import Structure_Ui_Camera
 from structure_threading import Thread_Object
 from structure_data import Structure_Buffer
 
@@ -183,19 +184,11 @@ class Ui_Settings(Structure_UI):
 ### ### ### ### ### ## ## ## ### ### ### ### ###
 
 
-class Ui_Camera_API_Developer(Structure_UI):
+class Ui_Camera_API_Developer(Structure_Ui_Camera):
     logger_level = logging.INFO
-    __camera_Instance = None
-    __exposure_Time = 40000
     #__Threads = dict()
     
-    UI_File_Path = ""
-    themes_list = {
-        "default": "default.qss"
-    }
     mdiArea = None
-    is_Camera_Stream_Active = False
-    mouse_Positions = dict()
 
     def __init__(self, *args, obj=None, logger_level=logging.INFO, **kwargs):
         super(Ui_Camera_API_Developer, self).__init__(*args, **kwargs)
@@ -235,7 +228,7 @@ class Ui_Camera_API_Developer(Structure_UI):
         """
         self.QTimer_Dict["graphicsView_Page_1_Camera_Buffer_Connector"] = self._qtimer_Create_And_Run(
             self,
-            lambda: self.Buffer_Dict["graphicsView_Page_1_Camera"].append(self.__camera_Instance.stream_Returner())
+            lambda: self.Buffer_Dict["graphicsView_Page_1_Camera"].append(self.camera_Instance.stream_Returner())
             ),
             100
         )
@@ -244,7 +237,7 @@ class Ui_Camera_API_Developer(Structure_UI):
             self,
             lambda: self.graphicsView_Renderer(
                 self.graphicsView_Page_1_Camera,
-                None if self.__camera_Instance is None else self.__camera_Instance.stream_Returner(auto_pop=False)
+                None if self.camera_Instance is None else self.camera_Instance.stream_Returner(auto_pop=False)
             ) if self.is_Stream_Active() else None,
             10
         )
@@ -256,18 +249,19 @@ class Ui_Camera_API_Developer(Structure_UI):
                 CAMERA_FLAGS.BAUMER if self.comboBox_Camera_API_Selection.currentText() == "Baumer" else 
                 CAMERA_FLAGS.CV2,
                 self.spinBox_Buffer_Size.value(),
-                self.__exposure_Time
+                self.exposure_Time
             )
         )
         self.pushButton_Page_1_Remove_the_Camera.clicked.connect(
             self.camera_Remove
         )
         self.pushButton_Page_1_Stream_Switch.clicked.connect(
-            self.stream_Switch
+            #lambda: print("self.stream_Switch", self.stream_Switch())
+            lambda: self.stream_Switch()
         )
         self.pushButton_Buffer_Clear.clicked.connect(
-            lambda: None if self.__camera_Instance is None \
-                else self.__camera_Instance.buffer_Clear()
+            lambda: None if self.camera_Instance is None \
+                else self.camera_Instance.buffer_Clear()
         )
         self.pushButton_Set_Exposure.clicked.connect(
             lambda: self.set_Camera_Exposure(
@@ -317,8 +311,8 @@ class Ui_Camera_API_Developer(Structure_UI):
                 self.horizontalSlider_Page_1_Buffer_Step_Bar.setMaximum(
                     self.spinBox_Buffer_Size.value()
                 ),
-                None if self.__camera_Instance is None \
-                else self.__camera_Instance.set_Buffer_Size(
+                None if self.camera_Instance is None \
+                else self.camera_Instance.set_Buffer_Size(
                     self.spinBox_Buffer_Size.value()
                 )
             )
@@ -327,7 +321,7 @@ class Ui_Camera_API_Developer(Structure_UI):
         self.horizontalSlider_Page_1_Buffer_Step_Bar.valueChanged.connect(
             lambda: self.graphicsView_Renderer(
                 self.graphicsView_Page_1_Camera,
-                None if self.__camera_Instance is None else self.__camera_Instance.get_Buffered_Image(
+                None if self.camera_Instance is None else self.camera_Instance.get_Buffered_Image(
                     self.horizontalSlider_Page_1_Buffer_Step_Bar.value()
                 )
             )
@@ -393,84 +387,6 @@ class Ui_Camera_API_Developer(Structure_UI):
         # self.__Threads["camera_Listener"].logger.disabled = True  # is_logger_disabled
         # self.__Threads["camera_Listener"].logger.propagate = not is_logger_disabled
         """
-
-    ### ### ### ### ###
-    ### ### ### ### ###
-    ### ### ### ### ###
-
-    ### ### ### ### ###
-    ### CAMERA APIs ###
-    ### ### ### ### ###
-    
-    def connect_to_Camera(self, camera_flag, buffer_size=10, exposure_time=40000):
-        if self.is_Camera_Instance_Exist():
-            self.camera_Remove()
-            self.connect_to_Camera(
-                camera_flag,
-                buffer_size,
-                exposure_time
-            )
-            
-        else:
-            self.__camera_Instance = self.get_Camera(camera_flag, buffer_size=buffer_size, exposure_time=exposure_time)
-            
-            # TODO: Add Color Changer
-            # self.
-            if self.is_Camera_Instance_Exist():
-                self.__camera_Instance.stream_Start_Thread(
-                    trigger_pause=self.is_Stream_Active,
-                    trigger_quit=self.is_Quit_App,
-                    number_of_snapshot=-1,
-                    delay=0.001
-                )
-            else:
-                self.__camera_Instance = None
-            
-    def camera_Listener(self):
-        pass
-        
-    def get_Camera(self, camera_flag=CAMERA_FLAGS.CV2, buffer_size=10, exposure_time=40000):
-        camera = None
-        try:
-            camera = Camera_Object(
-                camera_flag=camera_flag,
-                auto_configure=True,
-                trigger_quit=self.is_Quit_App,
-                trigger_pause=self.is_Stream_Active,
-                lock_until_done=False,
-                acquisition_framerate=15,
-                exposure_time=exposure_time,
-                max_buffer_limit=buffer_size,
-                logger_level=self.logger_level
-            )
-        except:
-            self.logger.error("There is no accessible camera based {} API".format(camera_flag.name))
-        return camera
-    
-    def is_Camera_Instance_Exist(self):
-        return False if self.__camera_Instance is None else False if not self.__camera_Instance.is_Object_Initialized() else True
-    
-    def camera_Remove(self):
-        if self.is_Camera_Instance_Exist():
-            self.stream_Switch(False)
-            #self.__camera_Instance.camera_Releaser()
-            self.__camera_Instance.quit()
-            self.__camera_Instance = None
-        #return self.is_Stream_Active()
-
-    def is_Stream_Active(self):
-        return self.is_Camera_Stream_Active
-    
-    def stream_Switch(self, bool=None):
-        self.is_Camera_Stream_Active = (
-            bool
-            if bool is None else not self.is_Camera_Stream_Active
-        )
-        return self.is_Camera_Stream_Active
-        
-    def set_Camera_Exposure(self, exposure_time):
-        self.__exposure_Time = exposure_time
-        None if self.__camera_Instance is None else self.__camera_Instance.set_Exposure_Time(self.__exposure_Time)
 
     ### ### ### ### ###
     ### ### ### ### ###
