@@ -11,15 +11,66 @@ from time import sleep
 import libs
 
 from stdo import stdo
-from structure_ui import Structure_UI, init_and_run_UI, init_UI
-from structure_camera import Camera_Object, CAMERA_FLAGS
+from qt_tools import lcdNumber_Set, qtimer_Create_And_Run, hide_elements, show_elements
+from structure_ui import Structure_UI, init_and_run_UI, init_UI, Graphics_View
+from structure_camera import CAMERA_FLAGS
 from structure_ui_camera import Structure_Ui_Camera
-from structure_threading import Thread_Object
-from structure_data import Structure_Buffer
 
 # CONFIGURATIONS
-MAX_SUBWINDOW = 2
+MAX_SUBWINDOW = 20
 
+
+class Graphics_View_LCD(Graphics_View):
+    def __init__(self, *args, ** kwargs):
+        super(Graphics_View_LCD, self).__init__(*args, **kwargs)
+
+        ### ### ### ## ## ## ### ###
+        ### INITIALIZE VARIABLES ###
+        ### ### ### ## ## ## ### ###
+
+        self.LCD_Number_List = None
+        self.list_coords_double_clicked = list()
+
+        ### ### ### ## ## ## ### ###
+        ### ### ### ## ## ## ### ###
+        ### ### ### ## ## ## ### ###
+
+    ### ### ### ### ### ### ### ###
+    ### ###  EVENT HANDLERS ### ###
+    ### ### ### ### ### ### ### ###
+
+    def mouseMoveEvent(self, event):
+        #Graphics_View.mouseMoveEvent(self, event)
+        super(Graphics_View_LCD, self).mouseMoveEvent(event)
+
+        # https://doc.qt.io/qtforpython-5/PySide2/QtWidgets/QGraphicsPixmapItem.html#PySide2.QtWidgets.PySide2.QtWidgets.QGraphicsPixmapItem.pixmap
+        # if type(self.mouse_Events["mouseMove_current_item"]) is QGraphicsPixmapItem and self.LCD_Number_List is not None:
+        if self.mouse_Events["mouseMove_current_item"] is not None and self.LCD_Number_List is not None:
+            qt_color_red, qt_color_green, qt_color_blue = get_Color(
+                #self.mouse_Events["mouseMove_current_item"].pixmap(),
+                self.get_Background_Item().pixmap(),
+                self.mouse_Events["mouseMove_position_scene"].x(),
+                self.mouse_Events["mouseMove_position_scene"].y(),
+                is_QT_Type=True
+            )
+            lcdNumber_Set(
+                self.LCD_Number_List,
+                [
+                    qt_color_red,
+                    qt_color_green,
+                    qt_color_blue,
+                    int((qt_color_red + qt_color_green + qt_color_blue) / 3)
+                    if qt_color_red + qt_color_green + qt_color_blue != 0
+                    else 0,
+                    int(255 - (qt_color_red + qt_color_green + qt_color_blue) / 3)
+                    if qt_color_red + qt_color_green + qt_color_blue != 0
+                    else 0
+                ]
+            )
+
+    ### ### ### ### ### ### ### ###
+    ### ### ### ### ### ### ### ###
+    ### ### ### ### ### ### ### ###
 
 
 ### ### ### ### ### ## ## ## ### ### ### ### ###
@@ -46,6 +97,7 @@ class Ui_Camera_API_Main(Structure_UI):
     ### ### ## ### ###
     
     def init(self):
+        
         self.configure_Other_Settings()
 
     def configure_Other_Settings(self):
@@ -208,7 +260,20 @@ class Ui_Camera_API_Developer(Structure_Ui_Camera):
     ### ### ## ### ###
     
     def init(self):
+
+        self.graphicsView_Page_1_Camera.LCD_Number_List = [
+            self.lcdNumber_Pointer_Color_Red,
+            self.lcdNumber_Pointer_Color_Green,
+            self.lcdNumber_Pointer_Color_Blue,
+            self.lcdNumber_Pointer_Color_Grayscale,
+            self.lcdNumber_Pointer_Color_Grayscale_Inverted
+        ]
         self.configure_Other_Settings()
+        
+        self.comboBox_Camera_API_Selection.addItems(
+            [flag.name for flag in CAMERA_FLAGS]
+        )
+        self.is_Video_Saving_Stopped = True
         #self.init_Buffers()
         #self.init_Threads()
         #self.connect_Threads()
@@ -226,14 +291,14 @@ class Ui_Camera_API_Developer(Structure_Ui_Camera):
         super(Ui_Camera_API_Developer, self).init_QTimers(*args, **kwargs)
         
         """
-        self.QTimer_Dict["graphicsView_Page_1_Camera_Buffer_Connector"] = self._qtimer_Create_And_Run(
+        self.QTimer_Dict["graphicsView_Page_1_Camera_Buffer_Connector"] = qtimer_Create_And_Run(
             self,
             lambda: self.Buffer_Dict["graphicsView_Page_1_Camera"].append(self.camera_Instance.stream_Returner())
             ),
             100
         )
         """
-        self.QTimer_Dict["graphicsView_Page_1_Camera_Renderer"] = self._qtimer_Create_And_Run(
+        self.QTimer_Dict["graphicsView_Page_1_Camera_Renderer"] = qtimer_Create_And_Run(
             self,
             lambda: self.graphicsView_Renderer(
                 self.graphicsView_Page_1_Camera,
@@ -245,9 +310,11 @@ class Ui_Camera_API_Developer(Structure_Ui_Camera):
     def configure_Button_Connections(self):
         self.pushButton_Page_1_Connect_to_Camera.clicked.connect(
             lambda: self.connect_to_Camera(
-                CAMERA_FLAGS.BASLER if self.comboBox_Camera_API_Selection.currentText() == "Basler" else 
-                CAMERA_FLAGS.BAUMER if self.comboBox_Camera_API_Selection.currentText() == "Baumer" else 
-                CAMERA_FLAGS.CV2,
+                [
+                    flag for 
+                    flag in CAMERA_FLAGS if flag.name == self.comboBox_Camera_API_Selection.currentText()
+                ][0],
+                self.spinBox_Camera_Index.value(),
                 self.spinBox_Buffer_Size.value(),
                 self.exposure_Time
             )
@@ -265,10 +332,12 @@ class Ui_Camera_API_Developer(Structure_Ui_Camera):
         )
         self.pushButton_Set_Exposure.clicked.connect(
             lambda: self.set_Camera_Exposure(
-                self.spinBox_Exposure_Time.value() * 10000
+                self.spinBox_Exposure_Time.value()
             )
         )
-        #self.pushButton_Page_1_Video.clicked.connect()
+        self.pushButton_Page_1_Video.clicked.connect(
+            self.video_Saving_Process
+        )
         #self.pushButton_Page_1_Snapshot.clicked.connect()
     
     def configure_Other_Settings(self):
@@ -276,10 +345,9 @@ class Ui_Camera_API_Developer(Structure_Ui_Camera):
         self.mouse_Positions["mouseMove_graphicsView_Pos"] = None
         self.mouse_Positions["mouseMove_graphicsView_Pos_To_Scene"] = None
         
-        self.init_qt_graphicsView(
-            self.graphicsView_Page_1_Camera,
-            mouseMoveEvent=self.mouseMove_Event_Handler_graphicsView
-        )
+        #self.init_qt_graphicsView(
+        #    self.graphicsView_Page_1_Camera
+        #)
         
         self.init_qt_graphicsView_Scene(
             self.graphicsView_Page_1_Camera,
@@ -329,19 +397,19 @@ class Ui_Camera_API_Developer(Structure_Ui_Camera):
         
         self.checkBox_Show_Only_Stream.stateChanged.connect(
             lambda:
-            self.hide_elements([
+            hide_elements([
                 self.groupBox_Page_1_Camera_General,
                 self.widget_Real_Time_Properties,
                 self.widget_Page_1_Tools
             ]) \
                 if self.checkBox_Show_Only_Stream.isChecked() else \
-            self.show_elements([
+            show_elements([
                 self.groupBox_Page_1_Camera_General,
                 self.widget_Real_Time_Properties,
                 self.widget_Page_1_Tools
             ])
         )
-        self.hide_elements([self.dial_Exposure_Time])
+        hide_elements([self.dial_Exposure_Time])
 
     def closeEvent(self, *args, **kwargs):
         super(Ui_Camera_API_Developer, self).closeEvent(*args, **kwargs)
@@ -447,6 +515,29 @@ class Ui_Camera_API_Developer(Structure_Ui_Camera):
     ### ### ### ### ### ### ### ###
     ### ### ### ### ### ### ### ###
     ### ### ### ### ### ### ### ###
+
+    def video_Saving_Process(self):
+        if self.is_Video_Save_Stop():
+            self.switch_Video_Save_Stop(False)
+            self.camera_Instance.save_Video_From_Buffer_Thread(
+                path="",
+                name=f"camera_{self.spinBox_Save_Video_FPS.value()}fps",
+                extension="avi",
+                fps=self.spinBox_Save_Video_FPS.value(),
+                trigger_pause=self.is_Stream_Active,
+                trigger_quit=self.is_Video_Save_Stop,
+                number_of_snapshot=-1,
+                delay=0.001
+            )
+        else:
+            self.switch_Video_Save_Stop(True)
+
+    def switch_Video_Save_Stop(self, bool=None):
+        self.is_Video_Saving_Stopped = bool if bool is not None else not self.is_Video_Saving_Stopped
+        return self.is_Video_Saving_Stopped
+
+    def is_Video_Save_Stop(self):
+        return self.is_Quit_App() if self.is_Quit_App() else self.is_Video_Saving_Stopped
 
         
 ### ### ### ### ### ## ## ## ### ### ### ### ###
